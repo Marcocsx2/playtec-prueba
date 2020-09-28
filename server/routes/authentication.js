@@ -18,7 +18,7 @@ async function verify(token) {
         audience: process.env.CLIENT_ID,  // Specify the CLIENT_ID of the app that accesses the backend
         // Or, if multiple clients access the backend:
         //[CLIENT_ID_1, CLIENT_ID_2, CLIENT_ID_3]
-    });
+    })
     const payload = ticket.getPayload();
 
     return {
@@ -36,86 +36,74 @@ async function verify(token) {
 app.post('/api/v1/google', async (req, res) => {
 
     let token = req.body.idToken;
-
-    if (token) {
-
-        let googleUser = await verify(token)
-            .catch(err => {
-                return res.status(403).json({
-                    ok: false,
-                    err
-                })
+    let googleUser = await verify(token)
+        .catch(err => {
+            return res.status(403).json({
+                ok: false,
+                err
             })
+        })
 
-        User.findOne({ email: googleUser.email }, (err, userDB) => {
-            if (err) {
-                return res.status(500).json({
+    User.findOne({ email: googleUser.email }, (err, userDB) => {
+        if (err) {
+            return res.status(500).json({
+                ok: false,
+                err
+            })
+        }
+
+        if (userDB) {
+            if (userDB.google === false) {
+                return res.status(400).json({
                     ok: false,
-                    err
+                    err: {
+                        message: "Este usuario ya existe con es correo, porfavor inicia sesion con tu cuenta"
+                    }
+                })
+            } else {
+
+                let token = jwt.sign({
+                    user: userDB
+                }, process.env.SEED, { expiresIn: process.env.TOKEN_EXPIRED })
+
+                return res.json({
+                    ok: true,
+                    user: userDB,
+                    token
                 })
             }
+        } else {
+            // SI el usuario no existe en la base de datos
+            let user = new User();
+            user.name = googleUser.name;
+            user.email = googleUser.email;
+            user.image = googleUser.image;
+            user.google = googleUser.google;
+            user.password = ":)";
 
-            if (userDB) {
-                if (userDB.google === false) {
-                    return res.status(400).json({
+            user.save((err, userDB) => {
+                if (err) {
+                    return res.status(500).json({
                         ok: false,
-                        err: {
-                            message: "Este usuario ya existe con es correo, porfavor inicia sesion con tu cuenta"
-                        }
-                    })
-                } else {
-
-                    let token = jwt.sign({
-                        user: userDB
-                    }, process.env.SEED, { expiresIn: process.env.TOKEN_EXPIRED })
-
-                    return res.json({
-                        ok: true,
-                        user: userDB,
-                        token
+                        err
                     })
                 }
-            } else {
-                // SI el usuario no existe en la base de datos
-                let user = new User();
-                user.name = googleUser.name;
-                user.email = googleUser.email;
-                user.image = googleUser.image;
-                user.google = googleUser.google;
-                user.password = ":)";
 
-                user.save((err, userDB) => {
-                    if (err) {
-                        return res.status(500).json({
-                            ok: false,
-                            err
-                        })
-                    }
+                let token = jwt.sign({
+                    user: userDB
+                }, process.env.SEED, { expiresIn: process.env.TOKEN_EXPIRED })
 
-                    let token = jwt.sign({
-                        user: userDB
-                    }, process.env.SEED, { expiresIn: process.env.TOKEN_EXPIRED })
-
-                    return res.json({
-                        ok: true,
-                        user: userDB,
-                        token
-                    })
-
+                return res.json({
+                    ok: true,
+                    user: userDB,
+                    token
                 })
 
-            }
+            })
 
-        })
-    } else {
-        return res.status(400).json({
-            ok:false,
-            err: {
-                message: 'El idToken es requerido'
-            }
-        })
-    }
+        }
 
+    });
 });
 
 
