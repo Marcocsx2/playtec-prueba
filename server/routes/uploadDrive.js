@@ -87,7 +87,7 @@ app.post('/api/v1/upload/drive', upload.single('file'), async (req, res) => {
 
         const googleDrive = google.drive({version: 'v3'});
 
-        const file = await googleDrive.files.create({
+        await googleDrive.files.create({
             auth: oAuth2Client,
             requestBody: {
                 ...fileMetaData,
