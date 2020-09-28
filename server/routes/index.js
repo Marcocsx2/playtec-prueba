@@ -5,7 +5,10 @@ const cors = require('cors');
 app.use(cors());
 
 // Autenticación con firebase Google
-app.use(require('./authentication'))
+app.use(require('./authentication'));
+
+// Subir archivo a google drive
+app.use(require('./uploadDrive'));
 
 
 module.exports = app;
