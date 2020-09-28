@@ -7,11 +7,11 @@ const User = require('../models/User');
 //Modulos de Json Web Token
 const jwt = require('jsonwebtoken');
 
+//Modules de Google Auth
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.CLIENT_ID);
 
 //Configuraciones de google
-
 async function verify(token) {
     const ticket = await client.verifyIdToken({
         idToken: token,
