@@ -5,52 +5,111 @@ const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
 const { google } = require('googleapis');
 const OAuth2Data = require("../config/credentials.json");
-const { OAuth2Client } = require('google-auth-library');
 
+const CLIENT_ID = OAuth2Data.web.client_id;
+const CLIENT_SECRET = OAuth2Data.web.client_secret;
+const REDIRECT_URL = OAuth2Data.web.redirect_uris[2];
+
+const oAuth2Client = new google.auth.OAuth2(
+    CLIENT_ID,
+    CLIENT_SECRET,
+    REDIRECT_URL
+);
+
+const SCOPES =
+    "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile";
+
+
+
+app.get("/api/v1/drive/autenticacion", (req, res) => {
+
+    var url = oAuth2Client.generateAuthUrl({
+        access_type: "offline",
+        scope: SCOPES,
+    });
+    console.log(url);
+    res.status(200).json({
+        ok: true,
+        url
+    })
+});
+
+app.get("/api/v1/drive/callback", function (req, res) {
+    const code = req.query.code;
+    if (code) {
+        oAuth2Client.getToken(code, function (err, tokens) {
+            if (err) {
+                console.log("Error en la autenticacion");
+                console.log(err);
+            } else {
+                console.log("Autenticado correctamente");
+                console.log(tokens)
+                oAuth2Client.setCredentials(tokens);
+                res.status(200).json({
+                    ok: true,
+                    tokens
+                })
+                authed = true;
+            }
+        });
+    }
+});
 
 app.post('/api/v1/upload/drive', upload.single('file'), async (req, res) => {
 
-    const idToken = req.body.idToken;
 
-    const { client_id, client_secret, redirect_uris } = OAuth2Data.web;
+    const tokenAccess = req.body.tokenAccess;
 
-    const oauth2Client = new google.auth.OAuth2(
-        client_id,
-        client_secret,
-        redirect_uris[0],
-    )
+    console.log(tokenAccess);
 
-    oauth2Client.credentials = {
-        refresh_token: idToken
-    };
+    if (!tokenAccess) {
+        return res.status(400).json({
+            ok: false,
+            err: {
+                message: "El token access es necesario"
+            }
+        })
+    } else {
 
-    drive = google.drive({
-        version: 'v3',
-        auth: oauth2Client
-    });
+        oAuth2Client.setCredentials = {
+            access_token: tokenAccess
+        };
 
-    const { originalname, path, mimetype } = req.file;
+        const fileMetaData = {
+            name: req.file.originalname,
+            mimeType: 'application/vnd.google-apps.presentation'
+        };
 
-    const fileMetaData = {
-        name: originalname,
-        mimeType: 'application/vnd.google-apps.presentation'
-    };
+        const media = {
+            mimeType: req.file.mimetype,
+            body: fs.createReadStream(req.file.path)
+        };
 
-    const media = {
-        mimeType: mimetype,
-        body: fs.createReadStream(path)
-    };
+        const googleDrive = google.drive({version: 'v3'});
 
+        const file = await googleDrive.files.create({
+            auth: oAuth2Client,
+            requestBody: {
+                ...fileMetaData,
+                type: 'anyone',
+                writersCanShare: true
+            },
+            media
+        })
 
-    const uploadedFile = await drive.files.create({
-        resource: fileMetaData,
-        media
-    })
+        await googleDrive.permissions.create({
+            auth: oAuth2Client,
+            fileId: data.id,
+            requestBody: {
+                type: 'anyone',
+                allowFileDiscovery: false,
+                role: 'reader'
+            },
+            fields: 'id'
+        });
+
+    }
 
 });
-
-
-
-
 
 module.exports = app;
