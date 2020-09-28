@@ -97,17 +97,6 @@ app.post('/api/v1/upload/drive', upload.single('file'), async (req, res) => {
             media
         })
 
-        await googleDrive.permissions.create({
-            auth: oAuth2Client,
-            fileId: data.id,
-            requestBody: {
-                type: 'anyone',
-                allowFileDiscovery: false,
-                role: 'reader'
-            },
-            fields: 'id'
-        });
-
         return res.status(200).json({
             ok: true,
             message:"Archivo subido correctamente"
